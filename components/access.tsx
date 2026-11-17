@@ -1,0 +1,35 @@
+'use client';
+import Link from 'next/link';
+import { useState,type ReactNode } from 'react';
+import { ArrowLeft,ArrowRight,CalendarDays,Check,Clock3,Info,LockKeyhole,Mail,ShieldCheck } from 'lucide-react';
+import { dateAndTime } from '@/lib/dates';
+import type { Guest } from '@/lib/model';
+import { post } from '@/lib/client';
+import { Badge,Brand,Button,Card,DateInfo,Eyebrow,Field,InlineError,Input,Modal,ModalActions } from './ui/primitives';
+
+function Google(){return <svg aria-hidden="true" viewBox="0 0 48 48" width={19} height={19}><path fill="#EA4335" d="M24 9.5c3.5 0 6.7 1.2 9.2 3.6l6.8-6.8C35.9 2.5 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.7 17.7 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.9 24.5c0-1.6-.2-3.1-.4-4.6H24V29h12.9c-.6 3-2.2 5.5-4.7 7.2l7.4 5.8c4.5-4.2 7.3-10.3 7.3-17.5Z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1A23.9 23.9 0 0 0 0 24c0 3.9 1 7.6 2.6 10.7l7.9-6.1Z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.2 15.6-6l-7.4-5.8c-2.1 1.5-4.9 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.9 6.1C6.5 42.6 14.6 48 24 48Z"/></svg>;}
+export function AuthScreen({demo,token,initialError,next}:{demo:boolean,token?:string,initialError?:string,next?:string}){
+ const [email,setEmail]=useState(''),[sent,setSent]=useState(false),[busy,setBusy]=useState(''),[error,setError]=useState(initialError||'');
+ const access=async(method:'google'|'magic')=>{setBusy(method);setError('');try{const r=await post<{url?:string}>(`/api/auth/${method}`,{...(method==='magic'?{email}:{}),token,next});if(r.url)window.location.assign(r.url);else setSent(true);}catch(e){setError((e as Error).message);}finally{setBusy('');}};
+ return <main className="auth-page"><section className="auth-art"><span className="hero-corner"/><div className="auth-art-content"><Eyebrow><span className="eyebrow-line"/> HALLEL · HAR TZION</Eyebrow><strong>UM SÓ<br/> <em>MINISTÉRIO.</em></strong><p>Louvor e Adoração Judaico-Messiânico</p></div></section><section className="auth-main"><Brand/>
+  <div className="auth-form"><Eyebrow><span className="eyebrow-line"/> ACESSO AO MINISTÉRIO</Eyebrow><h1>{token?'Aceitar ':'Bem-'}<span className="ink">{token?'convite':'vindo'}</span></h1><p>{token?'Use o e-mail em que recebeu o convite para entrar no Hallel.':'Entre para consultar suas escalas, músicas e os avisos da equipe.'}</p>
+  <InlineError message={error}/>
+  {sent?<div className="auth-success"><span className="tile tone-mint"><Mail size={22}/></span><h2>Confira seu e-mail</h2><p>Se o seu e-mail estiver cadastrado e autorizado, você receberá um link. Veja também a pasta de spam.</p><Button variant="secondary" onClick={()=>{setSent(false);setEmail('');}}>Usar outro e-mail</Button></div>:<>
+   {demo&&<div className="inline-alert info"><Info size={18}/><span>Esta é a demonstração. Login e envio de e-mails precisam dos serviços de produção.</span></div>}
+   <Button className="auth-google" variant="secondary" size="lg" busy={busy==='google'} disabled={demo||busy==='magic'} onClick={()=>access('google')}><Google/> Entrar com Google</Button><div className="auth-divider"><i/> ou entre com seu e-mail <i/></div>
+   <form className="stack-sm" onSubmit={e=>{e.preventDefault();access('magic');}}><Field label="E-mail"><Input required type="email" autoComplete="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="nome@exemplo.com" disabled={demo}/></Field><Button type="submit" size="lg" busy={busy==='magic'} disabled={demo||busy==='google'}><Mail size={18}/> Receber link por e-mail</Button></form>
+  </>}{demo&&<Button size="lg" asChild><Link href="/">Abrir demonstração <ArrowRight size={18}/></Link></Button>}
+  </div><footer className="auth-footer"><ShieldCheck size={16}/> Acesso sem senha · Hallel</footer>
+ </section></main>;
+}
+export function PublicFrame({children}:{children:ReactNode}){return <main className="public-frame"><div className="public-wrap"><div className="public-brand"><Brand/></div>{children}<p className="public-foot"><LockKeyhole size={14}/> Hallel · Ministério de Louvor</p></div></main>;}
+export function InvalidLink({kind,message}:{kind:'invite'|'schedule',message?:string}){
+ return <PublicFrame><Card className="public-card"><span className="tile tone-gold"><LockKeyhole size={22}/></span><h1>Link <span className="ink">indisponível</span></h1><p>{message||(kind==='invite'?'Este convite expirou, foi revogado ou já foi utilizado. Peça um novo à administração.':'Este link expirou ou não está disponível. Peça ajuda ao líder da sua banda.')}</p>{kind==='invite'&&<Button asChild variant="secondary"><Link href="/entrar"><ArrowLeft size={16}/> Voltar à entrada</Link></Button>}</Card></PublicFrame>;
+}
+export function GuestCard({initial,token,demo}:{initial:Guest,token:string,demo:boolean}){
+ const [guest,setGuest]=useState(initial),[decline,setDecline]=useState(false),[reason,setReason]=useState(''),[sub,setSub]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const respond=async(status:'confirmed'|'declined')=>{setError('');setBusy(true);try{setGuest(await post<Guest>(`/api/s/${token}`,{status,reason,substitute:sub}));setDecline(false);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ return <PublicFrame><Card className="public-card guest-card"><Eyebrow><span className="eyebrow-line"/> Sua escala</Eyebrow><h1>{guest.title}</h1><p>Shalom, {guest.first_name}! Responda à sua participação abaixo.</p><DateInfo starts={guest.starts_at} location={guest.location}/><div className="reply-head"><div><small className="muted">Sua função</small><strong>{guest.instrument_role}</strong></div><Badge status={guest.status}/></div><InlineError message={error&&!decline?error:null}/><div className="reply-actions"><Button busy={busy} onClick={()=>respond('confirmed')}><Check size={18}/> {guest.status==='confirmed'?'Confirmado':'Confirmar presença'}</Button><Button variant="secondary" onClick={()=>{setDecline(true);setError('');}}>{guest.status==='declined'?'Editar recusa':'Não posso'}</Button></div><small className="member-deadline muted"><Clock3 size={15}/> Responda até {dateAndTime(guest.confirm_deadline)}.</small>{demo&&<p className="muted tiny">Ambiente de demonstração. Dados fictícios.</p>}</Card>
+ {decline&&<Modal title="Não posso participar" description="Você pode deixar um recado para o líder da banda." onClose={()=>setDecline(false)}><form onSubmit={e=>{e.preventDefault();respond('declined');}}><div className="stack-sm"><Field label="Motivo (opcional)"><textarea className="input textarea" rows={3} maxLength={800} value={reason} onChange={e=>setReason(e.target.value)}/></Field><Field label="Sugestão de substituto (opcional)"><Input maxLength={160} value={sub} onChange={e=>setSub(e.target.value)}/></Field><InlineError message={error}/></div><ModalActions><Button variant="secondary" onClick={()=>setDecline(false)}>Cancelar</Button><Button type="submit" busy={busy}>Registrar resposta</Button></ModalActions></form></Modal>}
+ </PublicFrame>;
+}
